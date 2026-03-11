@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L.A. Noire — Case File Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --paper:#e4d8c0;--paper-dark:#d4c4a8;--paper-darker:#c8b490;
+  --ink:#1c1408;--ink-faded:#4a3c28;--ink-light:#7a6848;
+  --red:#8b1515;--blue:#1a3a6b;
+  --folder:#c8a870;--folder-dark:#a88850;
+  --rule:#8b7a5a;--rule-light:#b8a880;
+  --white:#f0e8d4;
+  --t:'Courier Prime',monospace;--h:'Playfair Display',serif;--s:'Special Elite',cursive;
+}
+body{
+  background:#4a3a20;
+  font-family:var(--t);color:var(--ink);min-height:100vh;
+}
+.page{max-width:1100px;margin:0 auto;padding:24px 14px 48px;}
+
+/* FOLDER */
+.folder{
+  background:var(--folder);
+  border:3px solid var(--folder-dark);
+  position:relative;
+  box-shadow:5px 7px 0 rgba(0,0,0,.45),10px 14px 0 rgba(0,0,0,.2);
+}
+.folder::before{
+  content:'LAPD — CASE FILES DIVISION';
+  position:absolute;top:-28px;left:28px;
+  background:var(--folder);border:3px solid var(--folder-dark);
+  border-bottom:none;padding:4px 18px;
+  font-family:var(--s);font-size:11px;letter-spacing:.16em;color:var(--ink-faded);
+}
+/* diagonal hatch on folder */
+.folder::after{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(-45deg,transparent,transparent 4px,rgba(0,0,0,.025) 4px,rgba(0,0,0,.025) 8px);
+  pointer-events:none;
+}
+
+/* HEADER */
+.hdr{
+  background:var(--white);border-bottom:4px double var(--rule);
+  padding:24px 28px 20px;position:relative;overflow:hidden;
+}
+/* venetian blinds */
+.hdr::after{
+  content:'';position:absolute;top:0;right:0;bottom:0;width:140px;
+  background:repeating-linear-gradient(180deg,transparent,transparent 11px,rgba(0,0,0,.07) 11px,rgba(0,0,0,.07) 13px);
+  pointer-events:none;
+}
+.hdr-inner{display:flex;align-items:flex-start;gap:20px;}
+.seal{
+  width:68px;height:68px;flex-shrink:0;
+  border:3px solid var(--ink);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;text-align:center;
+  font-family:var(--s);font-size:7.5px;letter-spacing:.06em;
+  color:var(--ink);line-height:1.4;
+  background:var(--paper);
+}
+.seal-star{font-size:20px;line-height:1;}
+.masthead{font-family:var(--h);font-size:clamp(24px,4vw,42px);font-weight:900;text-transform:uppercase;letter-spacing:-.01em;line-height:1;}
+.masthead em{font-style:italic;color:var(--ink-faded);}
+.hrule{height:3px;background:var(--ink);margin:7px 0 5px;}
+.hrule::after{content:'';display:block;height:1px;background:var(--ink);margin-top:3px;}
+.hdr-meta{display:flex;gap:28px;flex-wrap:wrap;margin-top:8px;}
+.mf{display:flex;flex-direction:column;gap:2px;}
+.ml{font-family:var(--s);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-light);}
+.mv{font-family:var(--t);font-size:13px;font-weight:700;border-bottom:1px solid var(--rule);padding-bottom:2px;min-width:90px;}
+.stamp{
+  position:absolute;right:160px;top:18px;
+  border:3px solid var(--red);padding:5px 12px;
+  font-family:var(--s);font-size:12px;letter-spacing:.2em;
+  color:var(--red);transform:rotate(-9deg);opacity:.8;pointer-events:none;
+}
+.stamp::before{content:'';position:absolute;inset:2px;border:1px solid var(--red);opacity:.4;}
+
+/* DROP ZONE */
+#dropzone{
+  background:var(--white);padding:44px 28px;text-align:center;
+  cursor:pointer;margin:18px;border:2px dashed var(--rule);
+  position:relative;
+}
+#dropzone::before{
+  content:'EVIDENCE INTAKE';
+  position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  background:var(--white);padding:0 12px;
+  font-family:var(--s);font-size:9px;letter-spacing:.2em;color:var(--ink-light);
+}
+#dropzone.dov{background:var(--paper-dark);border-color:var(--ink);}
+.dz-icon{font-size:36px;margin-bottom:14px;filter:grayscale(1);}
+#dropzone h2{font-family:var(--h);font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:8px;}
+#dropzone p{font-size:11px;color:var(--ink-faded);line-height:1.9;}
+#dropzone em{font-style:italic;color:var(--ink-light);}
+#fi{display:none;}
+
+/* BUTTONS */
+.btn{
+  font-family:var(--s);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  background:var(--white);border:2px solid var(--ink);color:var(--ink);
+  padding:6px 16px;cursor:pointer;transition:background .15s,color .15s;
+}
+.btn:hover{background:var(--ink);color:var(--paper);}
+.btn-r{border-color:var(--red);color:var(--red);}
+.btn-r:hover{background:var(--red);color:var(--paper);}
+.btn-b{border-color:var(--blue);color:var(--blue);}
+.btn-b:hover{background:var(--blue);color:var(--paper);}
+
+/* FILE BAR */
+.fbar{
+  background:var(--paper-dark);border-bottom:2px solid var(--rule);
+  padding:9px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+}
+.fn{font-family:var(--s);font-size:12px;color:var(--ink);letter-spacing:.05em;}
+.fm{font-size:10px;color:var(--ink-light);}
+.fbtns{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* STATS STRIP */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:2px solid var(--rule);}
+.sc{padding:11px 6px;text-align:center;border-right:1px solid var(--rule-light);background:var(--paper-dark);}
+.sc:last-child{border-right:none;}
+.sn{font-family:var(--h);font-size:24px;font-weight:700;color:var(--ink);line-height:1;}
+.sl{font-family:var(--s);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-light);margin-top:2px;}
+@media(max-width:600px){.stats{grid-template-columns:repeat(3,1fr);}}
+
+/* TABS */
+.tabs{display:flex;background:var(--folder-dark);border-bottom:3px solid var(--ink);overflow-x:auto;}
+.tab{
+  padding:8px 16px;font-family:var(--s);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--paper-dark);cursor:pointer;border-right:1px solid rgba(0,0,0,.15);
+  background:var(--folder);white-space:nowrap;transition:background .12s,color .12s;
+}
+.tab:hover{background:var(--paper);color:var(--ink);}
+.tab.on{
+  background:var(--white);color:var(--ink);font-weight:700;
+  border-top:2px solid var(--ink);border-left:1px solid var(--rule);border-right:1px solid var(--rule);
+  border-bottom:2px solid var(--white);margin-bottom:-3px;
+}
+.tp{display:none;}.tp.on{display:block;}
+
+/* CONTENT */
+.ca{background:var(--white);padding:22px;}
+
+/* FORM SECTION */
+.fs{margin-bottom:24px;border:1px solid var(--rule-light);background:var(--paper);}
+.ft{background:var(--ink);color:var(--paper);font-family:var(--s);font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:5px 14px;}
+.fb{padding:14px 16px;}
+
+/* FIELD */
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.f{display:flex;flex-direction:column;gap:4px;}
+.f label{font-family:var(--s);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-light);}
+.f input,.f select{
+  background:var(--white);border:none;border-bottom:2px solid var(--rule);
+  font-family:var(--t);font-size:14px;font-weight:700;color:var(--ink);
+  padding:4px 4px;outline:none;width:100%;
+}
+.f input:focus,.f select:focus{border-bottom-color:var(--ink);}
+.f .off{font-size:9px;color:var(--ink-light);font-family:var(--t);}
+.f .hint{font-size:10px;color:var(--ink-light);font-style:italic;}
+
+/* CHECK ITEMS */
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(275px,1fr));gap:3px;}
+.ci{
+  display:flex;align-items:center;gap:9px;padding:6px 9px;
+  background:var(--paper);border:1px solid var(--rule-light);cursor:pointer;transition:background .1s;font-size:11px;
+}
+.ci:hover{background:var(--paper-dark);}
+.ci.on{background:var(--paper-dark);}
+.cb{width:13px;height:13px;flex-shrink:0;border:2px solid var(--rule);background:var(--white);position:relative;}
+.ci.on .cb{border-color:var(--ink);}
+.ci.on .cb::after{content:'✓';position:absolute;top:-4px;left:0;font-size:14px;color:var(--ink);font-family:var(--t);font-weight:700;}
+.cl{flex:1;color:var(--ink-faded);}
+.ci.on .cl{color:var(--ink);font-weight:700;}
+.db{font-family:var(--s);font-size:8px;letter-spacing:.06em;padding:1px 5px;border:1px solid currentColor;text-transform:uppercase;flex-shrink:0;}
+.dt{color:var(--blue);}.dh{color:var(--red);}.dv{color:#5a3070;}.da{color:#7a4010;}.dx{color:#2a6030;}
+
+/* RANK PLATE */
+.rp{
+  display:flex;align-items:center;gap:18px;
+  background:var(--paper-dark);border:2px solid var(--ink);padding:14px 18px;margin-bottom:18px;
+}
+.rb{width:64px;height:64px;flex-shrink:0;border:3px solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--white);}
+.rn{font-family:var(--h);font-size:20px;font-weight:700;text-transform:uppercase;}
+.rs{font-family:var(--s);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-light);margin-top:3px;}
+.xb{height:6px;background:var(--white);border:1px solid var(--rule);margin-top:7px;}
+.xf{height:100%;background:var(--ink);transition:width .4s;}
+.xn{font-size:10px;color:var(--ink-light);margin-top:3px;font-style:italic;}
+
+/* PROGRESS */
+.pi{margin-bottom:12px;}
+.ph{display:flex;justify-content:space-between;margin-bottom:3px;}
+.pl{font-family:var(--s);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);}
+.pc{font-size:10px;color:var(--ink-faded);}
+.pb{height:7px;background:var(--white);border:1px solid var(--rule-light);}
+.pf{height:100%;background:var(--ink);transition:width .4s;}
+
+/* CHIPS */
+.chipg{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:3px;}
+.chip{
+  display:flex;align-items:center;gap:5px;padding:4px 6px;
+  border:1px solid var(--rule-light);font-size:10px;color:var(--ink-light);
+  cursor:pointer;background:var(--white);transition:background .1s;font-family:var(--t);
+}
+.chip:hover{background:var(--paper-dark);color:var(--ink);}
+.chip.got{background:var(--paper-dark);color:var(--ink);font-weight:700;}
+.cd{width:7px;height:7px;flex-shrink:0;border:1px solid var(--rule);background:var(--white);}
+.chip.got .cd{background:var(--ink);border-color:var(--ink);}
+
+/* PARTNERS */
+.pg2{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:7px;}
+.pc2{background:var(--paper);border:2px solid var(--rule-light);padding:12px;text-align:center;cursor:pointer;transition:border-color .12s;}
+.pc2:hover{border-color:var(--rule);}
+.pc2.on{border:2px solid var(--ink);background:var(--paper-dark);}
+.pc2.on::after{content:'◆ ASSIGNED';display:block;font-family:var(--s);font-size:8px;letter-spacing:.1em;color:var(--red);margin-top:4px;}
+.pe{font-size:22px;margin-bottom:5px;filter:grayscale(.4);}
+.pn{font-family:var(--s);font-size:11px;color:var(--ink);letter-spacing:.04em;}
+.pd{font-size:10px;color:var(--ink-light);margin-top:2px;font-style:italic;}
+
+/* TWO COL */
+.tc{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media(max-width:750px){.tc{grid-template-columns:1fr;}}
+
+/* NOTICES */
+.nw{padding:9px 12px;font-size:11px;line-height:1.7;margin-bottom:14px;font-style:italic;border-left:3px solid var(--red);color:var(--red);background:var(--paper);}
+.ni{padding:9px 12px;font-size:11px;line-height:1.7;margin-bottom:14px;font-style:italic;border-left:3px solid var(--blue);color:var(--blue);background:var(--paper);}
+
+/* COLLECT STRIP */
+.cs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+
+/* RATING */
+.rg{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:8px;}
+.rr{display:flex;align-items:center;gap:10px;padding:5px 9px;background:var(--paper);border:1px solid var(--rule-light);}
+.rl{flex:1;font-size:10px;color:var(--ink-faded);}
+.rs2{background:var(--white);border:1px solid var(--rule);font-family:var(--t);font-size:11px;padding:3px 5px;color:var(--ink);outline:none;}
+
+/* HEX */
+.ht{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+.hsw{display:flex;gap:5px;flex:1;min-width:180px;}
+.hsw input,.gw input{
+  background:var(--white);border:2px solid var(--rule);
+  font-family:var(--t);font-size:11px;padding:5px 8px;outline:none;color:var(--ink);flex:1;
+}
+.hsw input:focus,.gw input:focus{border-color:var(--ink);}
+.gw{display:flex;gap:5px;align-items:center;}
+.gw label{font-family:var(--s);font-size:9px;letter-spacing:.1em;color:var(--ink-light);}
+.hb{font-family:var(--t);font-size:11px;overflow:auto;max-height:440px;border:2px solid var(--rule);background:var(--white);}
+table.ht2{border-collapse:collapse;width:100%;}
+table.ht2 th{background:var(--ink);color:var(--paper);padding:3px 5px;font-size:8px;letter-spacing:.1em;text-transform:uppercase;text-align:left;position:sticky;top:0;font-weight:400;font-family:var(--s);}
+table.ht2 td{padding:2px 4px;color:var(--ink-faded);}
+.hr2:hover td{background:var(--paper-dark);}
+.ha{color:var(--ink-light);font-size:9px;user-select:none;white-space:nowrap;}
+.hby{cursor:pointer;padding:1px 3px!important;}
+.hby:hover{background:var(--paper-dark)!important;color:var(--ink);}
+.hby.sel{background:var(--ink)!important;color:var(--paper)!important;}
+.hby.hl{background:#f0d090!important;color:var(--ink)!important;}
+.hasc{border-left:1px solid var(--rule-light);padding-left:9px!important;color:var(--ink-light);letter-spacing:.04em;}
+.hasc .pr{color:var(--ink-faded);}
+.ep{background:var(--paper-dark);border:2px solid var(--rule);padding:10px;margin-top:8px;display:none;}
+.ep.on{display:block;}
+.er{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.ep label{font-family:var(--s);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-light);}
+.ep input{background:var(--white);border:2px solid var(--rule);font-family:var(--t);font-size:12px;padding:4px 7px;outline:none;color:var(--ink);width:75px;}
+.ea{font-family:var(--t);font-size:10px;color:var(--ink-light);}
+.mg{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;}
+@media(max-width:580px){.mg{grid-template-columns:1fr 1fr;}}
+
+/* QUICK RANKS */
+.qr{display:flex;gap:5px;flex-wrap:wrap;margin-top:14px;align-items:center;}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--ink);color:var(--paper);
+  font-family:var(--s);font-size:11px;letter-spacing:.1em;
+  padding:9px 18px;display:none;z-index:9999;
+  border-left:4px solid var(--red);
+  box-shadow:3px 3px 0 rgba(0,0,0,.3);max-width:260px;
+}
+footer{text-align:center;padding:14px;font-family:var(--s);font-size:9px;letter-spacing:.1em;color:var(--folder-dark);border-top:1px solid rgba(0,0,0,.2);margin-top:3px;}
+#es{display:none;}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="folder">
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="stamp">Restricted</div>
+  <div class="hdr-inner">
+    <div class="seal">
+      <span class="seal-star">★</span>
+      LAPD<br>1947
+    </div>
+    <div style="flex:1">
+      <div class="masthead">L.A. <em>Noire</em></div>
+      <div class="hrule"></div>
+      <div style="font-family:var(--s);font-size:11px;letter-spacing:.18em;color:var(--ink-faded);text-transform:uppercase;">Save File Editor &amp; Case Management System</div>
+      <div class="hdr-meta">
+        <div class="mf"><span class="ml">Department</span><span class="mv">Los Angeles P.D.</span></div>
+        <div class="mf"><span class="ml">Officer</span><span class="mv" id="hdr-off">Phelps, Cole</span></div>
+        <div class="mf"><span class="ml">File Size</span><span class="mv" id="hdr-sz">—</span></div>
+        <div class="mf"><span class="ml">Loaded</span><span class="mv" id="hdr-dt">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DROP ZONE -->
+<div id="dropzone" onclick="document.getElementById('fi').click()">
+  <div class="dz-icon">📁</div>
+  <h2>Load Save File</h2>
+  <p>
+    Drag &amp; drop your L.A. Noire save file, or click to browse.<br>
+    <em>PC path: Documents\Rockstar Games\LA Noire\Profiles\[name]\</em><br>
+    <em>Save files are named SGTA50000, SGTA50001, etc.</em>
+  </p>
+  <button class="btn" style="margin-top:14px;" onclick="event.stopPropagation();document.getElementById('fi').click()">Browse Files</button>
+  <input type="file" id="fi">
+</div>
+
+<!-- EDITOR -->
+<div id="es">
+
+  <!-- file bar -->
+  <div class="fbar">
+    <div><div class="fn" id="fn"></div><div class="fm" id="fm"></div></div>
+    <div class="fbtns">
+      <button class="btn btn-b" onclick="dl()">Save &amp; Download</button>
+      <button class="btn btn-r" onclick="rst()">✕ Close</button>
+    </div>
+  </div>
+
+  <!-- stats strip -->
+  <div class="stats">
+    <div class="sc"><div class="sn" id="st0">—</div><div class="sl">Rank</div></div>
+    <div class="sc"><div class="sn" id="st1">—</div><div class="sl">Cases</div></div>
+    <div class="sc"><div class="sn" id="st2">—</div><div class="sl">St. Crimes</div></div>
+    <div class="sc"><div class="sn" id="st3">—</div><div class="sl">Film Reels</div></div>
+    <div class="sc"><div class="sn" id="st4">—</div><div class="sl">Badges</div></div>
+    <div class="sc"><div class="sn" id="st5">—</div><div class="sl">Landmarks</div></div>
+  </div>
+
+  <!-- tabs -->
+  <div class="tabs">
+    <div class="tab on" data-t="t-story">📋 Story</div>
+    <div class="tab" data-t="t-rank">⭐ Rank / XP</div>
+    <div class="tab" data-t="t-col">🎬 Collectibles</div>
+    <div class="tab" data-t="t-cri">🚔 Street Crimes</div>
+    <div class="tab" data-t="t-par">🤝 Partners</div>
+    <div class="tab" data-t="t-veh">🚗 Vehicles</div>
+    <div class="tab" data-t="t-hex">🔬 Hex Editor</div>
+  </div>
+
+  <div class="ca">
+
+    <!-- STORY -->
+    <div id="t-story" class="tp on">
+      <div class="nw">Warning: Marking a case complete doesn't automatically trigger cutscenes or unlock the next case if prerequisite story flags are missing. Use the Hex Editor for deep flag control.</div>
+      <div class="fs"><div class="ft">🎓 Tutorial</div><div class="fb"><div class="cg" id="ct"></div></div></div>
+      <div class="fs"><div class="ft">🚗 Traffic Desk</div><div class="fb"><div class="cg" id="ctr"></div></div></div>
+      <div class="fs"><div class="ft">🔪 Homicide Desk</div><div class="fb"><div class="cg" id="cho"></div></div></div>
+      <div class="fs"><div class="ft">🎲 Vice Desk</div><div class="fb"><div class="cg" id="cvi"></div></div></div>
+      <div class="fs"><div class="ft">🔥 Arson Desk</div><div class="fb"><div class="cg" id="car"></div></div></div>
+    </div>
+
+    <!-- RANK -->
+    <div id="t-rank" class="tp">
+      <div class="rp">
+        <div class="rb" id="ri">🏅</div>
+        <div style="flex:1">
+          <div class="rn" id="rtit">Detective</div>
+          <div class="rs" id="rsub">Rank 1 of 20</div>
+          <div class="xb"><div class="xf" id="xf" style="width:0%"></div></div>
+          <div class="xn" id="xn">0 / 0 XP</div>
+        </div>
+      </div>
+      <div class="fs">
+        <div class="ft">⭐ Rank &amp; Experience</div>
+        <div class="fb">
+          <div class="fg">
+            <div class="f"><label>Current Rank (1–20)</label><input type="number" id="frk" min="1" max="20" value="1" oninput="upRk()"><span class="off">0x0050 · uint8</span></div>
+            <div class="f"><label>Total XP</label><input type="number" id="fxp" min="0" max="9999999" value="0" oninput="upRk()"><span class="off">0x0054 · uint32 LE</span></div>
+            <div class="f"><label>Intuition Points</label><input type="number" id="fint" min="0" max="99" value="5"><span class="off">0x0058 · uint8</span></div>
+            <div class="f"><label>Play Time (seconds)</label><input type="number" id="fpt" min="0" value="3600"><span class="off">0x005C · uint32 LE</span></div>
+          </div>
+          <div class="qr">
+            <span style="font-family:var(--s);font-size:9px;letter-spacing:.14em;color:var(--ink-light);text-transform:uppercase;">Quick set:</span>
+            <button class="btn" onclick="sRk(1)">Patrol</button>
+            <button class="btn" onclick="sRk(5)">Detective</button>
+            <button class="btn" onclick="sRk(8)">Sergeant</button>
+            <button class="btn" onclick="sRk(12)">Lieutenant</button>
+            <button class="btn" onclick="sRk(16)">Captain</button>
+            <button class="btn btn-b" onclick="sRk(20,47000)">Max Rank</button>
+          </div>
+        </div>
+      </div>
+      <div class="fs">
+        <div class="ft">★ Case Star Ratings</div>
+        <div class="fb">
+          <div class="ni">Star ratings (1–5) determine XP awarded per case. 5-star = maximum XP.</div>
+          <div class="rg" id="ratg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLLECTIBLES -->
+    <div id="t-col" class="tp">
+      <div class="tc">
+        <div>
+          <div class="fs">
+            <div class="ft">🎬 Film Reels (50)</div>
+            <div class="fb">
+              <div class="pi"><div class="ph"><span class="pl">Progress</span><span class="pc"><span id="rc">0</span>/50</span></div><div class="pb"><div class="pf" id="rb" style="width:0%"></div></div></div>
+              <div class="cs"><button class="btn btn-b" onclick="ca('reels')">Mark All</button><button class="btn btn-r" onclick="cn('reels')">Clear All</button></div>
+              <div class="chipg" id="rg"></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="fs">
+            <div class="ft">🏅 Police Badges (30)</div>
+            <div class="fb">
+              <div class="pi"><div class="ph"><span class="pl">Progress</span><span class="pc"><span id="bc">0</span>/30</span></div><div class="pb"><div class="pf" id="bb" style="width:0%"></div></div></div>
+              <div class="cs"><button class="btn btn-b" onclick="ca('badges')">Mark All</button><button class="btn btn-r" onclick="cn('badges')">Clear All</button></div>
+              <div class="chipg" id="bg"></div>
+            </div>
+          </div>
+          <div class="fs">
+            <div class="ft">🏛️ Landmarks (30)</div>
+            <div class="fb">
+              <div class="pi"><div class="ph"><span class="pl">Progress</span><span class="pc"><span id="lc">0</span>/30</span></div><div class="pb"><div class="pf" id="lb" style="width:0%"></div></div></div>
+              <div class="cs"><button class="btn btn-b" onclick="ca('landmarks')">Mark All</button><button class="btn btn-r" onclick="cn('landmarks')">Clear All</button></div>
+              <div class="chipg" id="lg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRIMES -->
+    <div id="t-cri" class="tp">
+      <div class="fs">
+        <div class="ft">🚔 Street Crimes (40)</div>
+        <div class="fb">
+          <div class="cs"><button class="btn btn-b" onclick="ca('crimes')">Solve All</button><button class="btn btn-r" onclick="cn('crimes')">Clear All</button></div>
+          <div class="cg" id="crg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARTNERS -->
+    <div id="t-par" class="tp">
+      <div class="fs">
+        <div class="ft">🤝 Current Partner Assignment</div>
+        <div class="fb">
+          <p style="font-size:11px;color:var(--ink-light);margin-bottom:12px;font-style:italic;">Select the partner currently assigned to Detective Phelps:</p>
+          <div class="pg2" id="parg"></div>
+        </div>
+      </div>
+      <div class="fs">
+        <div class="ft">🔓 Partner Unlock Status</div>
+        <div class="fb"><div class="cg" id="plug"></div></div>
+      </div>
+    </div>
+
+    <!-- VEHICLES -->
+    <div id="t-veh" class="tp">
+      <div class="fs">
+        <div class="ft">🚗 Vehicle Showroom (95 Vehicles)</div>
+        <div class="fb">
+          <div class="ni">Toggle to mark each vehicle as discovered in the showroom.</div>
+          <div class="cs"><button class="btn btn-b" onclick="ca('vehicles')">Discover All</button><button class="btn btn-r" onclick="cn('vehicles')">Clear All</button></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:3px;" id="vg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HEX -->
+    <div id="t-hex" class="tp">
+      <div class="nw">Advanced users only. Editing raw bytes can corrupt your save. Always keep a backup of the original file before making changes.</div>
+      <div class="ni">Known PC offsets — Rank: 0x50 · XP: 0x54 · Intuition: 0x58 · PlayTime: 0x5C · Cases: 0x200 · Street crimes: 0x400 · Film reels: 0x600 · Badges: 0x700 · Landmarks: 0x780</div>
+      <div class="fs">
+        <div class="ft">🔬 Hex Viewer</div>
+        <div class="fb">
+          <div class="ht">
+            <div class="hsw">
+              <input type="text" id="hs" placeholder="Search hex (FF 00 A3) or ASCII text…" onkeydown="if(event.key==='Enter')hSrch()">
+              <button class="btn" onclick="hSrch()">Search</button>
+              <button class="btn" onclick="hNxt()">Next</button>
+            </div>
+            <div class="gw">
+              <label>Go to:</label>
+              <input type="text" id="go" placeholder="0x0050" style="width:85px;">
+              <button class="btn" onclick="gTo()">Go</button>
+            </div>
+          </div>
+          <div class="hb" id="hb">
+            <table class="ht2"><thead><tr><th>Offset</th><th colspan="16">— Hex —</th><th>ASCII</th></tr></thead><tbody id="hbd"></tbody></table>
+          </div>
+          <div class="ep" id="ep">
+            <div class="er">
+              <span class="ea" id="ea">0x0000</span>
+              <label>Hex:</label><input type="text" id="ehx" maxlength="2" style="width:52px;" oninput="sEd('hex')">
+              <label>Dec:</label><input type="text" id="edc" maxlength="3" style="width:52px;" oninput="sEd('dec')">
+              <button class="btn btn-b" onclick="aByt()">Apply Byte</button>
+              <button class="btn" onclick="cEd()">Cancel</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap;">
+              <label style="font-family:var(--s);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-light);">uint16 LE:</label>
+              <input type="text" id="eu16" style="width:65px;background:var(--white);border:2px solid var(--rule);font-family:var(--t);font-size:11px;padding:3px 6px;outline:none;color:var(--ink);">
+              <label style="font-family:var(--s);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-light);">uint32 LE:</label>
+              <input type="text" id="eu32" style="width:85px;background:var(--white);border:2px solid var(--rule);font-family:var(--t);font-size:11px;padding:3px 6px;outline:none;color:var(--ink);">
+              <button class="btn btn-b" onclick="aMlt()">Apply Multi-Byte</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="fs">
+        <div class="ft">✏️ Direct Offset Writer</div>
+        <div class="fb">
+          <p style="font-size:10px;color:var(--ink-light);margin-bottom:10px;font-style:italic;">Write a value directly to any known offset without scrolling the viewer.</p>
+          <div class="mg">
+            <div class="f"><label>Offset (hex)</label><input type="text" id="mo" placeholder="0x0050"></div>
+            <div class="f"><label>Value</label><input type="text" id="mv" placeholder="20"></div>
+            <div class="f"><label>Write as</label><select id="mt"><option value="u8">uint8 (1 byte)</option><option value="u16le">uint16 LE (2 bytes)</option><option value="u32le" selected>uint32 LE (4 bytes)</option><option value="u16be">uint16 BE</option><option value="u32be">uint32 BE</option></select></div>
+            <div class="f" style="justify-content:flex-end;"><button class="btn btn-b" onclick="mWr()" style="margin-top:auto;">Write</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /folder -->
+<footer>L.A. Noire Save Editor &nbsp;·&nbsp; Unofficial fan tool — not affiliated with Rockstar Games or Team Bondi &nbsp;·&nbsp; Always back up your saves before editing</footer>
+</div><!-- /page -->
+<div id="toast"></div>
+
+<script>
+// ═══ DATA ═══
+const RANKS=['Patrol Officer','Officer 2nd Grade','Officer 1st Grade','Sergeant','Detective','Detective 2nd Grade','Detective 1st Grade','Senior Detective','Sergeant Detective','Acting Lieutenant','Detective Lieutenant','Sr. Detective Lieutenant','Lieutenant','Senior Lieutenant','Detective Captain','Acting Captain','Captain','Senior Captain','Chief of Detectives','Chief of Police'];
+const RICONS=['👮','👮','👮','⭐','🔍','🔍','🔍','🔍','⭐','⭐','🥇','🥇','🥇','🥇','🏅','🏅','🏅','🏅','🎖️','🎖️'];
+const XPT=[0,500,1000,1800,2800,4000,5400,7000,9000,11500,14500,18000,22000,26500,31500,37000,40000,43000,45500,47000];
+const CASES={
+  tutorial:[{id:'c0',n:'Upon Reflection'}],
+  traffic:[{id:'c1',n:"The Driver's Seat"},{id:'c2',n:'A Marriage Made in Heaven'},{id:'c3',n:'The Fallen Idol'},{id:'c4',n:'The Studio Secretary Murder'},{id:'c5',n:"The Consul's Car"}],
+  homicide:[{id:'c6',n:'The Red Lipstick Murder'},{id:'c7',n:'The Golden Butterfly'},{id:'c8',n:'The Silk Stocking Murder'},{id:'c9',n:'The White Shoe Slaying'},{id:'c10',n:'The Quarter Moon Murders'}],
+  vice:[{id:'c11',n:'The Black Caesar'},{id:'c12',n:'The Set Up'},{id:'c13',n:'Manifest Destiny'},{id:'c14',n:'The Naked City'},{id:'c15',n:'Nicholson Electroplating'}],
+  arson:[{id:'c16',n:'The Gas Man'},{id:'c17',n:'A Walk in Elysian Fields'},{id:'c18',n:'House of Sticks'},{id:'c19',n:'A Polite Invitation'},{id:'c20',n:'A Different Kind of War'}]
+};
+const CRIMES=["Buyer Beware","Bowling They Go","Killer Bandito","The Gas Man","Cafe Holup","Canned Fish","The Bad Cop","Shoo-Fly","The Badger Game","Death From Above","Against The Odds","The Extortionist","Thicker Than Water","Running Battle","A Fare to Remember","Ambulance Chaser","Hitched","Road to Nowhere","Trail Ration","Filling Station Holdup","The Candy Man","The Naked City","Handle With Care","Ration Book Robbery","Pinkus and the Rabbi","Paper Sack Holdup","The Umbrella Man","Daylight Robbery","Bowling Alley Holdup","Warrants Outstanding","Gangster Squad","Hitch Hiking","The Silk Stocking Murder","Nicholson Electroplating","Cop Killer","I Deal in Lead","The Screenwriter","Slip of the Tongue","Drive by Shooting","In the Line of Duty"];
+const PARTNERS=[{id:'ralph',n:'Ralph Dunn',d:'Traffic',e:'🚗'},{id:'bek',n:'Stefan Bekowsky',d:'Traffic',e:'🚗'},{id:'gal',n:'Rusty Galloway',d:'Homicide',e:'🔪'},{id:'big',n:'Roy Biggs',d:'Vice',e:'🎲'},{id:'ear',n:'Jack Earle',d:'Vice',e:'🎲'},{id:'kel',n:'Jack Kelso',d:'Arson',e:'🔥'}];
+const REELS=Array.from({length:50},(_,i)=>`Reel #${String(i+1).padStart(2,'0')}`);
+const BAGES=Array.from({length:30},(_,i)=>`Badge #${String(i+1).padStart(2,'0')}`);
+const LANDS=["Bullocks Wilshire","City Hall","Bradbury Building","Union Station","Grauman's Chinese","Hollywood Sign","Griffith Observatory","Dodger Stadium Site","Bunker Hill","Echo Park","Angel's Flight","Broadway Theater Dist.","Santa Monica Pier","Watts Towers","Paramount Pictures","MGM Studios","RKO Pictures","Warner Bros","Columbia Pictures","20th Century Fox","The Brown Derby","Perino's Restaurant","Clifton's Cafeteria","The Coconut Grove","The Mocambo","Ciro's Nightclub","Musso & Frank Grill","Pink's Hot Dogs","The Ambassador Hotel","Chateau Marmont"];
+const VEHS=["Ford Deluxe Fordor","Chevrolet Stylemaster","Plymouth Special Deluxe","Buick Roadmaster","Chrysler Windsor","Dodge Custom","Hudson Commodore","Oldsmobile 98","Packard Custom Super","Cadillac Series 62","Lincoln Cosmopolitan","Mercury Eight","Studebaker Champion","Nash Ambassador","Kaiser Special","Frazer Manhattan","Ford Super Deluxe","Chevrolet Fleetmaster","Plymouth P-15","Buick Special","Chrysler New Yorker","Dodge Coronet","Hudson Super Six","Oldsmobile 76","Ford Police Interceptor","Chevrolet Police","Dodge Police","DeSoto Police","Ford Woody Wagon","Chevrolet Suburban","Dodge Power Wagon","International Harvester","Ford COE Truck","Chevrolet COE","Diamond T Truck","Peterbilt 260","Yellow Cab","Checker Cab","Packard Hearse","Ambulance","LAPD Patrol Car","LAPD Detective Car","Fire Engine","Army Jeep","Army Truck","Army Half-Track","Lincoln Continental","Buick Eight","Cadillac Fleetwood","Chrysler Town & Country","Mercury Sportsman","Ford Sportsman","Delahaye 135","Talbot-Lago T26","Bentley Mark VI","Rolls-Royce Silver Wraith","Jaguar Mark V","Allard J2","MG TC","Triumph Roadster","Austin-Healey 100","Frazer-Nash Le Mans","Tucker Torpedo","Tatra 87","Cisitalia 202","Ferrari 166","Alfa Romeo 6C","Maserati A6","OSCA MT4","Fiat 1100","Lancia Aurelia","Isotta Fraschini","Bugatti Type 57","Delage D8","Hispano-Suiza K6","Voisin C28","Salmson S4E","Darracq Type V","Duesenberg Model J","Cord 812","Auburn Speedster","Franklin Series 17","Pierce-Arrow 1602","Marmon Sixteen","Stutz Vertical Eight","Ruxton Model C","Kissel Gold Bug","Jordan Playboy","Biddle Runabout","Locomobile Sportif","Stanley Steamer","Detroit Electric","Rauch & Lang","Columbia Mark LXV"];
+
+// ═══ STATE ═══
+let SA=null,FN='',sOff=-1,sRes=[],sIdx=0;
+const S={rk:1,xp:0,int:5,pt:3600,cases:{},rats:{},crimes:{},reels:{},badges:{},lands:{},vehs:{},par:'bek',pul:{}};
+
+// ═══ INIT ═══
+function init(){
+  const cm={tutorial:'ct',traffic:'ctr',homicide:'cho',vice:'cvi',arson:'car'};
+  const dc={tutorial:'dx',traffic:'dt',homicide:'dh',vice:'dv',arson:'da'};
+  for(const[dk,cs]of Object.entries(CASES)){
+    const wrap=document.getElementById(cm[dk]);
+    cs.forEach(c=>{
+      S.cases[c.id]=false;S.rats[c.id]=5;
+      const d=mk('div','ci',`<div class="cb"></div><span class="cl">${c.n}</span><span class="db ${dc[dk]}">${dk}</span>`);
+      d.id='ci-'+c.id;d.onclick=()=>{S.cases[c.id]=!S.cases[c.id];d.classList.toggle('on',S.cases[c.id]);updS();};
+      wrap.appendChild(d);
+    });
+  }
+  // Ratings
+  const rg=document.getElementById('ratg');
+  for(const cs of Object.values(CASES))cs.forEach(c=>{
+    const d=mk('div','rr',`<span class="rl">${c.n}</span><select class="rs2" id="rat-${c.id}" onchange="S.rats['${c.id}']=+this.value"><option value="1">★☆☆☆☆</option><option value="2">★★☆☆☆</option><option value="3">★★★☆☆</option><option value="4">★★★★☆</option><option value="5" selected>★★★★★</option></select>`);
+    rg.appendChild(d);
+  });
+  // Crimes
+  const cg=document.getElementById('crg');
+  CRIMES.forEach((n,i)=>{
+    S.crimes[i]=false;
+    const d=mk('div','ci',`<div class="cb"></div><span class="cl">${n}</span>`);
+    d.id='cri-'+i;d.onclick=()=>{S.crimes[i]=!S.crimes[i];d.classList.toggle('on',S.crimes[i]);updS();};
+    cg.appendChild(d);
+  });
+  // Chips
+  mkChips('rg','reels',REELS,'r');
+  mkChips('bg','badges',BAGES,'b');
+  mkChips('lg','lands',LANDS,'l');
+  // Vehicles
+  const vg=document.getElementById('vg');
+  VEHS.forEach((n,i)=>{
+    S.vehs[i]=false;
+    const d=document.createElement('div');
+    d.id='vc-'+i;
+    d.style.cssText='display:flex;align-items:center;gap:5px;padding:4px 7px;border:1px solid var(--rule-light);font-size:10px;color:var(--ink-light);cursor:pointer;background:var(--white);font-family:var(--t);transition:background .1s;';
+    d.innerHTML=`<span class="vd" style="width:7px;height:7px;flex-shrink:0;border:1px solid var(--rule);background:var(--white);display:inline-block;"></span>${n}`;
+    d.onclick=()=>{
+      S.vehs[i]=!S.vehs[i];
+      const on=S.vehs[i];
+      d.style.background=on?'var(--paper-dark)':'var(--white)';
+      d.style.color=on?'var(--ink)':'var(--ink-light)';
+      d.style.fontWeight=on?'700':'400';
+      d.querySelector('.vd').style.background=on?'var(--ink)':'var(--white)';
+    };
+    vg.appendChild(d);
+  });
+  // Partners
+  const pg=document.getElementById('parg');
+  PARTNERS.forEach(p=>{
+    S.pul[p.id]=false;
+    const d=mk('div','pc2'+(p.id===S.par?' on':''),`<div class="pe">${p.e}</div><div class="pn">${p.n}</div><div class="pd">${p.d}</div>`);
+    d.id='pc-'+p.id;d.onclick=()=>{
+      S.par=p.id;
+      document.querySelectorAll('.pc2').forEach(x=>x.classList.remove('on'));
+      d.classList.add('on');
+    };
+    pg.appendChild(d);
+  });
+  const ug=document.getElementById('plug');
+  PARTNERS.forEach(p=>{
+    const d=mk('div','ci',`<div class="cb"></div><span class="cl">${p.e} ${p.n} — ${p.d}</span>`);
+    d.id='pu-'+p.id;d.onclick=()=>{S.pul[p.id]=!S.pul[p.id];d.classList.toggle('on',S.pul[p.id]);};
+    ug.appendChild(d);
+  });
+  // Tabs
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.tp').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on');document.getElementById(t.dataset.t).classList.add('on');
+  }));
+  upRk();updS();
+}
+
+function mk(tag,cls,html){const d=document.createElement(tag);d.className=cls;d.innerHTML=html;return d;}
+
+function mkChips(gid,grp,list,pre){
+  const obj=grp==='reels'?S.reels:grp==='badges'?S.badges:S.lands;
+  const g=document.getElementById(gid);
+  list.forEach((n,i)=>{
+    obj[pre+i]=false;
+    const d=mk('div','chip',`<span class="cd"></span>${n}`);
+    d.id='ch-'+pre+i;
+    d.onclick=()=>{obj[pre+i]=!obj[pre+i];d.classList.toggle('got',obj[pre+i]);updS();};
+    g.appendChild(d);
+  });
+}
+
+// ═══ RANK ═══
+function upRk(){
+  const r=Math.min(Math.max(parseInt(document.getElementById('frk').value)||1,1),20);
+  const xp=parseInt(document.getElementById('fxp').value)||0;
+  const i=r-1;
+  document.getElementById('rtit').textContent=RANKS[i];
+  document.getElementById('rsub').textContent=`Rank ${r} of 20`;
+  document.getElementById('ri').textContent=RICONS[i];
+  document.getElementById('st0').textContent=r;
+  const nx=XPT[Math.min(i+1,19)],cu=XPT[i];
+  const pct=nx>cu?Math.min(100,((xp-cu)/(nx-cu))*100):100;
+  document.getElementById('xf').style.width=pct+'%';
+  document.getElementById('xn').textContent=`${xp.toLocaleString()} / ${nx.toLocaleString()} XP to next rank`;
+}
+function sRk(r,xp){
+  document.getElementById('frk').value=r;
+  document.getElementById('fxp').value=xp!==undefined?xp:XPT[r-1];
+  upRk();
+}
+
+// ═══ STATS ═══
+function updS(){
+  const cd=Object.values(S.cases).filter(Boolean).length;
+  const crd=Object.values(S.crimes).filter(Boolean).length;
+  const rd=Object.values(S.reels).filter(Boolean).length;
+  const bd=Object.values(S.badges).filter(Boolean).length;
+  const ld=Object.values(S.lands).filter(Boolean).length;
+  document.getElementById('st1').textContent=cd;
+  document.getElementById('st2').textContent=crd;
+  document.getElementById('st3').textContent=rd;
+  document.getElementById('st4').textContent=bd;
+  document.getElementById('st5').textContent=ld;
+  document.getElementById('rc').textContent=rd;document.getElementById('rb').style.width=(rd/50*100)+'%';
+  document.getElementById('bc').textContent=bd;document.getElementById('bb').style.width=(bd/30*100)+'%';
+  document.getElementById('lc').textContent=ld;document.getElementById('lb').style.width=(ld/30*100)+'%';
+}
+
+// ═══ COLLECT ALL/NONE ═══
+function ca(g){
+  if(g==='reels')REELS.forEach((_,i)=>sc('reels','r',i,true));
+  else if(g==='badges')BAGES.forEach((_,i)=>sc('badges','b',i,true));
+  else if(g==='landmarks')LANDS.forEach((_,i)=>sc('lands','l',i,true));
+  else if(g==='crimes')CRIMES.forEach((_,i)=>{S.crimes[i]=true;const e=document.getElementById('cri-'+i);if(e)e.classList.add('on');});
+  else if(g==='vehicles')VEHS.forEach((_,i)=>{S.vehs[i]=true;const d=document.getElementById('vc-'+i);if(d){d.style.background='var(--paper-dark)';d.style.color='var(--ink)';d.style.fontWeight='700';d.querySelector('.vd').style.background='var(--ink)';}});
+  updS();
+}
+function cn(g){
+  if(g==='reels')REELS.forEach((_,i)=>sc('reels','r',i,false));
+  else if(g==='badges')BAGES.forEach((_,i)=>sc('badges','b',i,false));
+  else if(g==='landmarks')LANDS.forEach((_,i)=>sc('lands','l',i,false));
+  else if(g==='crimes')CRIMES.forEach((_,i)=>{S.crimes[i]=false;const e=document.getElementById('cri-'+i);if(e)e.classList.remove('on');});
+  else if(g==='vehicles')VEHS.forEach((_,i)=>{S.vehs[i]=false;const d=document.getElementById('vc-'+i);if(d){d.style.background='var(--white)';d.style.color='var(--ink-light)';d.style.fontWeight='400';d.querySelector('.vd').style.background='var(--white)';}});
+  updS();
+}
+function sc(grp,pre,i,v){const obj=grp==='reels'?S.reels:grp==='badges'?S.badges:S.lands;obj[pre+i]=v;const d=document.getElementById('ch-'+pre+i);if(d)d.classList.toggle('got',v);}
+
+// ═══ FILE LOAD ═══
+document.getElementById('fi').addEventListener('change',e=>{if(e.target.files[0])lf(e.target.files[0])});
+const dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dov')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dov'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dov');if(e.dataTransfer.files[0])lf(e.dataTransfer.files[0])});
+
+function lf(file){
+  FN=file.name;
+  const r=new FileReader();
+  r.onload=e=>{
+    SA=new Uint8Array(e.target.result);
+    document.getElementById('fn').textContent=FN;
+    document.getElementById('fm').textContent=`${file.size.toLocaleString()} bytes · ${new Date(file.lastModified).toLocaleDateString()}`;
+    document.getElementById('hdr-sz').textContent=file.size.toLocaleString()+' bytes';
+    document.getElementById('hdr-dt').textContent=new Date().toLocaleDateString();
+    document.getElementById('dropzone').style.display='none';
+    document.getElementById('es').style.display='block';
+    parseF();renderHex();updS();
+    tst('✓ Loaded: '+FN);
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function parseF(){
+  if(!SA)return;
+  const u8=o=>SA[o]||0;
+  const u32=o=>o+3<SA.length?(SA[o]|(SA[o+1]<<8)|(SA[o+2]<<16)|(SA[o+3]<<24))>>>0:0;
+  document.getElementById('frk').value=Math.min(Math.max(u8(0x50),1),20);
+  document.getElementById('fxp').value=u32(0x54);
+  document.getElementById('fint').value=u8(0x58);
+  document.getElementById('fpt').value=u32(0x5C);
+  let allC=[];for(const cs of Object.values(CASES))allC=allC.concat(cs);
+  allC.forEach((c,i)=>{
+    const bo=0x200+Math.floor(i/8),bt=i%8;
+    const done=bo<SA.length?!!(SA[bo]&(1<<bt)):false;
+    S.cases[c.id]=done;const el=document.getElementById('ci-'+c.id);if(el)el.classList.toggle('on',done);
+  });
+  CRIMES.forEach((_,i)=>{
+    const bo=0x400+Math.floor(i/8),bt=i%8;
+    const done=bo<SA.length?!!(SA[bo]&(1<<bt)):false;
+    S.crimes[i]=done;const el=document.getElementById('cri-'+i);if(el)el.classList.toggle('on',done);
+  });
+  REELS.forEach((_,i)=>{
+    const bo=0x600+Math.floor(i/8),bt=i%8;
+    const done=bo<SA.length?!!(SA[bo]&(1<<bt)):false;
+    S.reels['r'+i]=done;const el=document.getElementById('ch-r'+i);if(el)el.classList.toggle('got',done);
+  });
+  upRk();updS();
+}
+
+// ═══ SAVE / DOWNLOAD ═══
+function writF(){
+  if(!SA)return;
+  const w8=(o,v)=>{if(o<SA.length)SA[o]=v&0xFF};
+  const w32=(o,v)=>{for(let i=0;i<4&&o+i<SA.length;i++)SA[o+i]=(v>>>(i*8))&0xFF};
+  w8(0x50,parseInt(document.getElementById('frk').value)||1);
+  w32(0x54,parseInt(document.getElementById('fxp').value)||0);
+  w8(0x58,parseInt(document.getElementById('fint').value)||0);
+  w32(0x5C,parseInt(document.getElementById('fpt').value)||0);
+  let allC=[];for(const cs of Object.values(CASES))allC=allC.concat(cs);
+  for(let i=0;i<8;i++)if(0x200+i<SA.length)SA[0x200+i]=0;
+  allC.forEach((c,i)=>{const bo=0x200+Math.floor(i/8),bt=i%8;if(S.cases[c.id])SA[bo]|=(1<<bt);else SA[bo]&=~(1<<bt);});
+  for(let i=0;i<6;i++)if(0x400+i<SA.length)SA[0x400+i]=0;
+  CRIMES.forEach((_,i)=>{const bo=0x400+Math.floor(i/8),bt=i%8;if(S.crimes[i])SA[bo]|=(1<<bt);else SA[bo]&=~(1<<bt);});
+  for(let i=0;i<8;i++)if(0x600+i<SA.length)SA[0x600+i]=0;
+  REELS.forEach((_,i)=>{const bo=0x600+Math.floor(i/8),bt=i%8;if(S.reels['r'+i])SA[bo]|=(1<<bt);else SA[bo]&=~(1<<bt);});
+}
+function dl(){
+  if(!SA){tst('No save file loaded');return;}
+  writF();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([SA],{type:'application/octet-stream'}));
+  a.download=FN||'SGTA50000';a.click();URL.revokeObjectURL(a.href);
+  tst('Downloaded: '+(FN||'SGTA50000'));
+}
+function rst(){
+  SA=null;FN='';
+  document.getElementById('dropzone').style.display='';
+  document.getElementById('es').style.display='none';
+  document.getElementById('fi').value='';
+}
+
+// ═══ HEX VIEWER ═══
+const BPR=16,MXR=512;
+function renderHex(sc){
+  if(!SA)return;
+  const bd=document.getElementById('hbd');bd.innerHTML='';
+  const lim=Math.min(SA.length,MXR*BPR);
+  for(let row=0;row<Math.ceil(lim/BPR);row++){
+    const base=row*BPR,tr=document.createElement('tr');tr.className='hr2';
+    const at=document.createElement('td');at.className='ha';
+    at.textContent='0x'+base.toString(16).padStart(5,'0').toUpperCase();tr.appendChild(at);
+    let asc='';
+    for(let col=0;col<BPR;col++){
+      const off=base+col,td=document.createElement('td');td.className='hby';td.id='hb-'+off;
+      if(off<SA.length){const v=SA[off];td.textContent=v.toString(16).padStart(2,'0').toUpperCase();td.onclick=()=>sByt(off);asc+=(v>=32&&v<127)?String.fromCharCode(v):'.';}
+      else{td.textContent='  ';asc+=' ';}
+      tr.appendChild(td);
+    }
+    const at2=document.createElement('td');at2.className='hasc';
+    at2.innerHTML=asc.split('').map((c,i)=>{const v=SA[base+i];const e=c.replace(/&/g,'&amp;').replace(/</g,'&lt;');return(v>=32&&v<127)?`<span class="pr">${e}</span>`:e;}).join('');
+    tr.appendChild(at2);bd.appendChild(tr);
+  }
+  if(sc!==undefined){const el=document.getElementById('hb-'+sc);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});}
+}
+function sByt(off){
+  if(sOff>=0){const p=document.getElementById('hb-'+sOff);if(p)p.classList.remove('sel');}
+  sOff=off;const el=document.getElementById('hb-'+off);if(el)el.classList.add('sel');
+  document.getElementById('ep').classList.add('on');
+  document.getElementById('ea').textContent='Offset 0x'+off.toString(16).toUpperCase().padStart(4,'0');
+  document.getElementById('ehx').value=SA[off].toString(16).padStart(2,'0').toUpperCase();
+  document.getElementById('edc').value=SA[off];
+  const u16=off+1<SA.length?(SA[off]|(SA[off+1]<<8))>>>0:SA[off];
+  const u32=off+3<SA.length?(SA[off]|(SA[off+1]<<8)|(SA[off+2]<<16)|(SA[off+3]<<24))>>>0:u16;
+  document.getElementById('eu16').value=u16;document.getElementById('eu32').value=u32;
+}
+function sEd(fr){
+  if(fr==='hex'){const v=parseInt(document.getElementById('ehx').value,16);if(!isNaN(v))document.getElementById('edc').value=v;}
+  else if(fr==='dec'){const v=parseInt(document.getElementById('edc').value);if(!isNaN(v))document.getElementById('ehx').value=v.toString(16).padStart(2,'0').toUpperCase();}
+}
+function aByt(){
+  if(sOff<0)return;const v=parseInt(document.getElementById('ehx').value,16);
+  if(isNaN(v)||v<0||v>255){tst('Invalid byte value');return;}
+  SA[sOff]=v;const el=document.getElementById('hb-'+sOff);if(el)el.textContent=v.toString(16).padStart(2,'0').toUpperCase();
+  tst('Byte at 0x'+sOff.toString(16).toUpperCase()+' = '+v.toString(16).toUpperCase());
+}
+function aMlt(){
+  if(sOff<0)return;const u32=parseInt(document.getElementById('eu32').value);
+  if(isNaN(u32)){tst('Invalid value');return;}
+  for(let i=0;i<4&&sOff+i<SA.length;i++){SA[sOff+i]=(u32>>>(i*8))&0xFF;const el=document.getElementById('hb-'+(sOff+i));if(el)el.textContent=SA[sOff+i].toString(16).padStart(2,'0').toUpperCase();}
+  tst('uint32 written at 0x'+sOff.toString(16).toUpperCase());
+}
+function cEd(){document.getElementById('ep').classList.remove('on');if(sOff>=0){const el=document.getElementById('hb-'+sOff);if(el)el.classList.remove('sel');sOff=-1;}}
+function hSrch(){
+  if(!SA)return;const q=document.getElementById('hs').value.trim();if(!q)return;sRes=[];
+  const pts=q.split(/\s+/).map(s=>parseInt(s,16));
+  if(pts.every(v=>!isNaN(v)&&v>=0&&v<=255))for(let i=0;i<=SA.length-pts.length;i++)if(pts.every((v,j)=>SA[i+j]===v))sRes.push(i);
+  else{const enc=new TextEncoder().encode(q);for(let i=0;i<=SA.length-enc.length;i++)if(enc.every((v,j)=>SA[i+j]===v))sRes.push(i);}
+  sIdx=0;document.querySelectorAll('.hby.hl').forEach(e=>e.classList.remove('hl'));
+  if(!sRes.length){tst('No results found');return;}
+  sRes.forEach(o=>{const el=document.getElementById('hb-'+o);if(el)el.classList.add('hl');});
+  goHex(sRes[0]);tst(`${sRes.length} result(s) found`);
+}
+function hNxt(){if(!sRes.length){hSrch();return;}sIdx=(sIdx+1)%sRes.length;goHex(sRes[sIdx]);tst(`Result ${sIdx+1}/${sRes.length}`);}
+function gTo(){const s=document.getElementById('go').value.trim();const o=s.startsWith('0x')?parseInt(s,16):parseInt(s);if(isNaN(o)){tst('Invalid offset');return;}goHex(o);}
+function goHex(off){const el=document.getElementById('hb-'+off);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});sByt(off);}else tst('Offset out of rendered range');}
+function mWr(){
+  if(!SA){tst('No save loaded');return;}
+  const os=document.getElementById('mo').value.trim(),vs=document.getElementById('mv').value.trim(),tp=document.getElementById('mt').value;
+  const off=os.startsWith('0x')?parseInt(os,16):parseInt(os);
+  const val=vs.startsWith('0x')?parseInt(vs,16):parseInt(vs);
+  if(isNaN(off)||isNaN(val)){tst('Invalid input');return;}
+  if(tp==='u8')SA[off]=val&0xFF;
+  else if(tp==='u16le'){SA[off]=val&0xFF;SA[off+1]=(val>>8)&0xFF;}
+  else if(tp==='u32le')for(let i=0;i<4;i++)SA[off+i]=(val>>>(i*8))&0xFF;
+  else if(tp==='u16be'){SA[off]=(val>>8)&0xFF;SA[off+1]=val&0xFF;}
+  else if(tp==='u32be')for(let i=0;i<4;i++)SA[off+i]=(val>>>((3-i)*8))&0xFF;
+  renderHex(off);tst(`Written ${val} as ${tp} at 0x${off.toString(16).toUpperCase()}`);
+}
+
+// ═══ TOAST ═══
+let tt;
+function tst(msg){const el=document.getElementById('toast');el.textContent=msg;el.style.display='block';clearTimeout(tt);tt=setTimeout(()=>el.style.display='none',3000);}
+
+init();
+</script>
+</body>
+</html>
